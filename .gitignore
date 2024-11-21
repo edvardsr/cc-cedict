@@ -1,0 +1,4 @@
+data/cedict.zip
+data/status.txt
+node_modules
+*.tgz

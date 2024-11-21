@@ -1,0 +1,29 @@
+{
+  "name": "cc-cedict",
+  "version": "1.0.0",
+  "description": "Provides helper functions for CC-CEDICT word retrieval.",
+  "main": "index.js",
+  "author": "edvardsr",
+  "license": "MIT",
+  "dependencies": {
+    "adm-zip": "^0.5.16"
+  },
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/edvardsr/cc-cedict"
+  },
+  "scripts": {
+    "postinstall": "node build.js"
+  },
+  "keywords": [
+    "cc-cedict",
+    "cedict",
+    "dictionary",
+    "chinese",
+    "mandarin",
+    "traditional",
+    "simplified",
+    "pinyin"
+  ]
+}
