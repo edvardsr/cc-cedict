@@ -97,16 +97,18 @@ export default class Cedict {
      * Organize and return search results.
      * @param {object} resultsMap - Filtered results mapped by pinyin.
      * @param {object} variantMap - Map of variant indices.
+     * @param {boolean} allowVariants - Whether to include variants in the results.
      * @param {boolean} asObject - Whether to return results as an object.
      * @param {boolean} mergeCases - Whether pinyin cases should be merged in results, with definitions from lowercase ones going first.
      * @returns {object|array} - Processed results.
      */
-    formatResults(resultsMap, variantMap, asObject, mergeCases) {
+    formatResults(resultsMap, variantMap, allowVariants, asObject, mergeCases) {
         const results = asObject ? {} : [];
 
         for (const [pinyinKey, indices] of Object.entries(resultsMap)) {
             const items = indices
                 .map((idx) => this.expandValue(this.data.all[idx], variantMap[idx] ?? false))
+                .filter((val) => allowVariants ? true : val.is_variant === false)
                 .sort((a, b) => a.pinyin.localeCompare(b.pinyin));
 
             const itemMap = items.reduce((acc, item) => {
@@ -152,7 +154,7 @@ export default class Cedict {
         keysToCheck.sort((a, b) => a.localeCompare(b))
 
         const { resultsMap, variantMap } = this.processResults(wordSource, keysToCheck, allowVariants, mergeCases);
-        const formattedResults = this.formatResults(resultsMap, variantMap, asObject, mergeCases);
+        const formattedResults = this.formatResults(resultsMap, variantMap, allowVariants, asObject, mergeCases);
 
         return formattedResults.length || Object.keys(formattedResults).length ? formattedResults : null;
     }
