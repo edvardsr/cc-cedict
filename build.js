@@ -8,11 +8,11 @@ const cedictUrl = 'https://www.mdbg.net/chinese/export/cedict/cedict_1_0_ts_utf-
 const dataPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'data');
 
 const PATHS = {
-    status: path.join(dataPath, 'status.txt'),
+    status: path.join(dataPath, 'status.json'),
     zipFile: path.join(dataPath, 'cedict.zip'),
-    all: path.join(dataPath, 'all.json'),
-    traditional: path.join(dataPath, 'traditional.json'),
-    simplified: path.join(dataPath, 'simplified.json')
+    all: path.join(dataPath, 'all.js'),
+    traditional: path.join(dataPath, 'traditional.js'),
+    simplified: path.join(dataPath, 'simplified.js')
 };
 
 const REGEX = {
@@ -21,8 +21,6 @@ const REGEX = {
     classifiers: /(CL:((([\p{Unified_Ideograph}\u3006\u3007][\ufe00-\ufe0f\u{e0100}-\u{e01ef}]?){1,})?(\|([\p{Unified_Ideograph}\u3006\u3007][\ufe00-\ufe0f\u{e0100}-\u{e01ef}]?){1,})?(\[([^\]]*)\]),?)+)/gmu,
     pinyin: /([A-Za-z\:]+[0-9])/g,
 };
-
-const VERSION = '1.0.0';
 
 // Utility to ensure a directory exists
 const ensureDirectoryExists = (dir) => {
@@ -114,9 +112,9 @@ const extractAndProcessZip = (zipPath) => {
             }
         }
 
-        fs.writeFileSync(PATHS.all, JSON.stringify(all));
-        fs.writeFileSync(PATHS.traditional, JSON.stringify(traditional));
-        fs.writeFileSync(PATHS.simplified, JSON.stringify(simplified));
+        fs.writeFileSync(PATHS.all, `export default ${JSON.stringify(all)}`);
+        fs.writeFileSync(PATHS.traditional, `export default ${JSON.stringify(traditional)}`);
+        fs.writeFileSync(PATHS.simplified, `export default ${JSON.stringify(simplified)}`);
     } catch (err) {
         console.error('Error processing ZIP file:', err.stack || err);
     }
@@ -205,35 +203,32 @@ const main = async () => {
     try {
         ensureDirectoryExists(dataPath);
 
-        if (!fs.existsSync(PATHS.status)) {
-            console.log('Downloading CC-CEDICT...');
-            let success = false;
+        console.log('Downloading CC-CEDICT...');
+        let success = false;
 
-            for (let attempt = 1; attempt <= 3; attempt++) {
-                try {
-                    await downloadFile(cedictUrl, PATHS.zipFile);
-                    success = true;
-                    break;
-                } catch (err) {
-                    console.error(`Download attempt ${attempt} failed:`, err);
-                }
-            }
-
+        for (let attempt = 1; attempt <= 3; attempt++) {
             try {
-                if (!success) throw 'Failed to download CC-CEDICT';
-
-                console.log('Parsing CC-CEDICT data...');
-                extractAndProcessZip(PATHS.zipFile);
-    
-                console.log('Removing raw CC-CEDICT files...');
-                fs.unlinkSync(PATHS.zipFile);
-                fs.writeFileSync(PATHS.status, `1|${VERSION}|${new Date().toISOString()}`);
-            } catch (e) {
-                console.error(`${e}. Using fallback CC-CEDICT data processed at package upload time...`);
-                fs.unlinkSync(PATHS.zipFile);
-                fs.writeFileSync(PATHS.status, `0|${VERSION}|${new Date().toISOString()}`);
-                return;
+                await downloadFile(cedictUrl, PATHS.zipFile);
+                success = true;
+                break;
+            } catch (err) {
+                console.error(`Download attempt ${attempt} failed:`, err);
             }
+        }
+
+        try {
+            if (!success) throw 'Failed to download CC-CEDICT';
+
+            console.log('Parsing CC-CEDICT data...');
+            extractAndProcessZip(PATHS.zipFile);
+
+            console.log('Removing raw CC-CEDICT files...');
+            fs.unlinkSync(PATHS.zipFile);
+            fs.writeFileSync(PATHS.status, JSON.stringify({ updated_at: new Date().toISOString() }));
+        } catch (e) {
+            console.error(`${e}. Using fallback CC-CEDICT data processed at package upload time...`);
+            fs.unlinkSync(PATHS.zipFile);
+            return;
         }
 
         console.log('CC-CEDICT setup complete!');

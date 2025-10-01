@@ -1,6 +1,6 @@
 {
   "name": "cc-cedict",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "Provides helper functions for CC-CEDICT word retrieval.",
   "main": "index.js",
   "author": "edvardsr",

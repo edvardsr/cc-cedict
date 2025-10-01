@@ -1,8 +1,6 @@
-import fs from 'fs';
-import { fileURLToPath } from 'url';
-import path from 'path';
-
-const dataPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'data');
+import allData from './data/all.js';
+import traditionalData from './data/traditional.js';
+import simplifiedData from './data/simplified.js';
 
 export default class Cedict {
     constructor() {
@@ -10,7 +8,11 @@ export default class Cedict {
             return Cedict.instance;
         }
 
-        this.data = {}; // Cache for loaded data
+        this.data = {
+            all: allData,
+            traditional: traditionalData,
+            simplified: simplifiedData
+        };
         this.defaultConfig = {
             caseSensitiveSearch: true,
             mergeCases: false,
@@ -18,27 +20,7 @@ export default class Cedict {
             allowVariants: true
         }; // Default configuration
 
-        // Preload data sources
-        ['all', 'traditional', 'simplified'].forEach((source) => this.loadDataSource(source));
-
         Cedict.instance = this; // Singleton instance
-    }
-
-    /**
-     * Load a data source from a JSON file, if not already loaded.
-     * @param {string} name - Name of the data source.
-     */
-    loadDataSource(name) {
-        if (!this.data[name]) {
-            try {
-                const filePath = path.join(dataPath, `${name}.json`);
-                const fileContent = fs.readFileSync(filePath, 'utf8');
-                this.data[name] = JSON.parse(fileContent);
-            } catch (error) {
-                console.error(`Failed to load data source "${name}":`, error.message);
-                throw new Error(`Data source "${name}" could not be loaded.`);
-            }
-        }
     }
 
     /**
