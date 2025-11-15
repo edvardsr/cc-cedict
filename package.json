@@ -6,7 +6,7 @@
   "author": "edvardsr",
   "license": "MIT",
   "dependencies": {
-    "adm-zip": "^0.5.16"
+    "unzipper": "^0.12.3"
   },
   "type": "module",
   "repository": {

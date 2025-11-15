@@ -1,6 +1,6 @@
 import https from 'https';
 import fs from 'fs';
-import AdmZip from 'adm-zip';
+import unzipper from 'unzipper';
 import { fileURLToPath } from 'url';
 import path from 'path';
 
@@ -69,17 +69,17 @@ const pushVariantTo = (val, orig, lineToNum, arr, field) => {
 };
 
 // Extract and process the ZIP file
-const extractAndProcessZip = (zipPath) => {
+const extractAndProcessZip = async (zipPath) => {
     try {
-        const zip = new AdmZip(zipPath);
-        const cedictEntry = zip.getEntry('cedict_ts.u8');
+        const directory = await unzipper.Open.file(zipPath);
+        const cedictFile = directory.files.find(f => f.path === 'cedict_ts.u8');
 
-        if (!cedictEntry) {
+        if (!cedictFile) {
             console.error('cedict_ts.u8 not found in the ZIP file');
             return;
         }
 
-        const cedictData = cedictEntry.getData().toString('utf8');
+        const cedictData = (await cedictFile.buffer()).toString('utf8');
         const lines = cedictData.split('\n');
         const variantQueue = [];
         const lineToNum = {};
@@ -220,7 +220,7 @@ const main = async () => {
             if (!success) throw 'Failed to download CC-CEDICT';
 
             console.log('Parsing CC-CEDICT data...');
-            extractAndProcessZip(PATHS.zipFile);
+            await extractAndProcessZip(PATHS.zipFile);
 
             console.log('Removing raw CC-CEDICT files...');
             fs.unlinkSync(PATHS.zipFile);
