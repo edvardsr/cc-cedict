@@ -216,6 +216,9 @@ const parseVariant = (input) => {
     return [ simplified, traditional || simplified, pinyin ];
 };
 
+// Export functions for testing
+export { REGEX, parseLine, parseMeanings, parseVariant };
+
 // Main entry point
 const main = async () => {
     try {

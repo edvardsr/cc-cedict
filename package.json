@@ -14,7 +14,11 @@
     "url": "https://github.com/edvardsr/cc-cedict"
   },
   "scripts": {
-    "postinstall": "node build.js"
+    "postinstall": "node build.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
   },
   "keywords": [
     "cc-cedict",
@@ -25,5 +29,11 @@
     "traditional",
     "simplified",
     "pinyin"
-  ]
+  ],
+  "devDependencies": {
+    "@types/node": "^24.10.1",
+    "@vitest/ui": "^4.0.9",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.9"
+  }
 }
