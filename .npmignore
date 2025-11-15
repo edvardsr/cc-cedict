@@ -1,0 +1,35 @@
+# Source files (only ship compiled code)
+src/
+*.ts
+!*.d.ts
+
+# Tests
+tests/
+*.test.ts
+*.test.js
+*.spec.ts
+*.spec.js
+vitest.config.ts
+tsconfig.test.json
+
+# Development files
+.git/
+.gitignore
+node_modules/
+coverage/
+IMPROVEMENTS.md
+
+# Temporary build files
+data/cedict.zip
+
+# Build artifacts
+*.tsbuildinfo
+.DS_Store
+
+# Config files
+.editorconfig
+.eslintrc*
+.prettierrc*
+tsconfig.json
+tsc-alias.json
+

@@ -2,20 +2,37 @@
   "name": "cc-cedict",
   "version": "1.0.3",
   "description": "Provides helper functions for CC-CEDICT word retrieval.",
-  "main": "index.js",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "author": "edvardsr",
   "license": "MIT",
   "dependencies": {
     "unzipper": "^0.12.3"
   },
   "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "data"
+  ],
   "repository": {
     "type": "git",
     "url": "https://github.com/edvardsr/cc-cedict"
   },
   "scripts": {
-    "postinstall": "node build.js",
-    "test": "vitest run",
+    "build": "tsc && tsc-alias",
+    "build:watch": "tsc --watch",
+    "prebuild": "rm -rf dist",
+    "prepublishOnly": "npm run build",
+    "postinstall": "node dist/build.js",
+    "typecheck": "tsc --noEmit && tsc --project tsconfig.test.json --noEmit",
+    "test": "npm run typecheck && vitest run",
+    "test:only": "vitest run",
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage"
@@ -28,11 +45,15 @@
     "mandarin",
     "traditional",
     "simplified",
-    "pinyin"
+    "pinyin",
+    "typescript"
   ],
   "devDependencies": {
     "@types/node": "^24.10.1",
+    "@types/unzipper": "^0.10.11",
+    "@vitest/coverage-v8": "^4.0.9",
     "@vitest/ui": "^4.0.9",
+    "tsc-alias": "^1.8.16",
     "typescript": "^5.9.3",
     "vitest": "^4.0.9"
   }

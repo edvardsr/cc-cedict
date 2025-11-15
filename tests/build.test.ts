@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'fs';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import { REGEX, parseLine, parseMeanings, parseVariant } from '../build.js';
+import { REGEX, parseLine, parseMeanings, parseVariant } from '../src/build.js';
 
 describe('Build Script - Line Parsing', () => {
   describe('parseLine', () => {
@@ -47,8 +47,8 @@ describe('Build Script - Line Parsing', () => {
       expect(result).not.toBeNull();
       expect(result![4]).toBeDefined(); // variant_of
       expect(result![4].length).toBeGreaterThan(0);
-      expect(result![4][0][0]).toBe('家具'); // traditional/simplified of variant
-      expect(result![4][0][2]).toBe('jia1 ju4'); // pinyin of variant
+      expect(result![4][0][0]).toBe('家具'); // simplified/traditional of variant (tuple format)
+      expect(result![4][0][2]).toBe('jia1 ju4'); // pinyin of variant (tuple format)
     });
 
     it('should skip comment lines', () => {

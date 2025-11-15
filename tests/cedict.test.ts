@@ -1,14 +1,19 @@
 import { describe, it, expect } from 'vitest';
-import cedict from '../index.js';
+import cedict, { 
+  type DictionaryEntry, 
+  type SearchResultsObject, 
+  type SearchResultsArray,
+  type SearchResults 
+} from '../src/index.js';
 
 describe('Cedict', () => {
   describe('Basic Search', () => {
     it('should retrieve word by simplified Chinese (中国)', () => {
-      const result = cedict.getBySimplified('中国');
+      const result = cedict.getBySimplified('中国') as SearchResultsObject;
       expect(result).not.toBeNull();
       expect(result).toHaveProperty('Zhong1 guo2');
       
-      const entry = result!['Zhong1 guo2'][0];
+      const entry: DictionaryEntry = result['Zhong1 guo2'][0];
       expect(entry.traditional).toBe('中國');
       expect(entry.simplified).toBe('中国');
       expect(entry.pinyin).toBe('Zhong1 guo2');
@@ -17,13 +22,13 @@ describe('Cedict', () => {
     });
 
     it('should retrieve word by traditional Chinese (中國)', () => {
-      const result = cedict.getByTraditional('中國');
+      const result = cedict.getByTraditional('中國') as SearchResultsObject;
       expect(result).not.toBeNull();
       expect(result).toHaveProperty('Zhong1 guo2');
       
       // Should return same data as simplified lookup
-      const simplified = cedict.getBySimplified('中国');
-      expect(Object.keys(result!)).toEqual(Object.keys(simplified!));
+      const simplified = cedict.getBySimplified('中国') as SearchResultsObject;
+      expect(Object.keys(result)).toEqual(Object.keys(simplified));
     });
 
     it('should return null for non-existent words', () => {
@@ -32,8 +37,8 @@ describe('Cedict', () => {
     });
 
     it('should return results with correct structure', () => {
-      const result = cedict.getBySimplified('中国');
-      const entry = result!['Zhong1 guo2'][0];
+      const result = cedict.getBySimplified('中国') as SearchResultsObject;
+      const entry: DictionaryEntry = result['Zhong1 guo2'][0];
       
       // Verify all required fields exist
       expect(entry).toHaveProperty('traditional');
@@ -57,27 +62,27 @@ describe('Cedict', () => {
 
   describe('Pinyin Filtering', () => {
     it('should filter by exact pinyin (前邊 with qian2 bian5)', () => {
-      const result = cedict.getByTraditional('前邊', 'qian2 bian5');
+      const result = cedict.getByTraditional('前邊', 'qian2 bian5') as SearchResultsObject;
       expect(result).not.toBeNull();
       expect(result).toHaveProperty('qian2 bian5');
       
-      const entries = result!['qian2 bian5'];
-      const mainEntry = entries.find((e: any) => e.traditional === '前邊');
+      const entries: DictionaryEntry[] = result['qian2 bian5'];
+      const mainEntry = entries.find(e => e.traditional === '前邊');
       expect(mainEntry).toBeDefined();
       expect(mainEntry!.english).toContain('front');
     });
 
     it('should filter case-insensitively when caseSensitiveSearch=false', () => {
-      const result = cedict.getByTraditional('前邊', 'QIAN2 bian5', { caseSensitiveSearch: false });
+      const result = cedict.getByTraditional('前邊', 'QIAN2 bian5', { caseSensitiveSearch: false }) as SearchResultsObject;
       expect(result).not.toBeNull();
       expect(result).toHaveProperty('qian2 bian5');
       
       // Should include both main entry and erhua variant
-      const entries = result!['qian2 bian5'];
+      const entries: DictionaryEntry[] = result['qian2 bian5'];
       expect(entries.length).toBeGreaterThan(1);
       
-      const mainEntry = entries.find((e: any) => e.traditional === '前邊');
-      const erhuaEntry = entries.find((e: any) => e.traditional === '前邊兒');
+      const mainEntry = entries.find(e => e.traditional === '前邊');
+      const erhuaEntry = entries.find(e => e.traditional === '前邊兒');
       expect(mainEntry).toBeDefined();
       expect(erhuaEntry).toBeDefined();
       expect(erhuaEntry!.is_variant).toBe(true);
@@ -137,36 +142,36 @@ describe('Cedict', () => {
     });
 
     it('should return array when asObject=false (只)', () => {
-      const result = cedict.getBySimplified('只', null, { asObject: false });
+      const result = cedict.getBySimplified('只', null, { asObject: false }) as SearchResultsArray;
       expect(result).not.toBeNull();
       expect(Array.isArray(result)).toBe(true);
-      expect(result!.length).toBeGreaterThan(0);
+      expect(result.length).toBeGreaterThan(0);
       
       // Should have multiple entries with different pinyin
-      const pinyinValues = result!.map((e: any) => e.pinyin);
+      const pinyinValues = result.map((e: DictionaryEntry) => e.pinyin);
       expect(new Set(pinyinValues).size).toBeGreaterThan(1);
     });
   });
 
   describe('Config: allowVariants', () => {
     it('should include variants by default (家具)', () => {
-      const result = cedict.getBySimplified('家具');
+      const result = cedict.getBySimplified('家具') as SearchResultsObject;
       expect(result).not.toBeNull();
       
-      const entries = result!['jia1 ju4'];
+      const entries: DictionaryEntry[] = result['jia1 ju4'];
       expect(entries.length).toBeGreaterThan(1);
       
       // Should have main entry
-      const mainEntry = entries.find((e: any) => e.traditional === '家具' && e.is_variant === false);
+      const mainEntry = entries.find(e => e.traditional === '家具' && e.is_variant === false);
       expect(mainEntry).toBeDefined();
       expect(mainEntry!.classifiers.length).toBe(2);
       
       // Should have variants (傢俱, 傢具, 家俱)
-      const variantEntries = entries.filter((e: any) => e.is_variant === true);
+      const variantEntries = entries.filter(e => e.is_variant === true);
       expect(variantEntries.length).toBeGreaterThan(0);
       
       // Verify variant structure
-      variantEntries.forEach((variant: any) => {
+      variantEntries.forEach((variant: DictionaryEntry) => {
         expect(variant.variant_of).toBeDefined();
         expect(variant.variant_of.length).toBeGreaterThan(0);
         expect(variant.variant_of[0].traditional).toBe('家具');
@@ -176,10 +181,10 @@ describe('Cedict', () => {
     });
 
     it('should exclude variants when allowVariants=false (家具)', () => {
-      const result = cedict.getBySimplified('家具', null, { allowVariants: false });
+      const result = cedict.getBySimplified('家具', null, { allowVariants: false }) as SearchResultsObject;
       expect(result).not.toBeNull();
       
-      const entries = result!['jia1 ju4'];
+      const entries: DictionaryEntry[] = result['jia1 ju4'];
       expect(entries.length).toBe(1);
       expect(entries[0].traditional).toBe('家具');
       expect(entries[0].simplified).toBe('家具');
@@ -207,9 +212,9 @@ describe('Cedict', () => {
     });
 
     it('should handle classifiers (家具)', () => {
-      const result = cedict.getBySimplified('家具');
-      const entries = result!['jia1 ju4'];
-      const mainEntry = entries.find((e: any) => e.is_variant === false);
+      const result = cedict.getBySimplified('家具') as SearchResultsObject;
+      const entries: DictionaryEntry[] = result['jia1 ju4'];
+      const mainEntry = entries.find(e => e.is_variant === false);
       
       expect(mainEntry!.classifiers).toBeDefined();
       expect(Array.isArray(mainEntry!.classifiers)).toBe(true);
@@ -224,26 +229,26 @@ describe('Cedict', () => {
       const result = cedict.getBySimplified('家具', null, { 
         asObject: false, 
         allowVariants: false 
-      });
+      }) as SearchResultsArray;
       
       expect(result).not.toBeNull();
       expect(Array.isArray(result)).toBe(true);
-      expect(result!.length).toBe(1);
-      expect(result![0].is_variant).toBe(false);
-      expect(result![0].traditional).toBe('家具');
+      expect(result.length).toBe(1);
+      expect(result[0].is_variant).toBe(false);
+      expect(result[0].traditional).toBe('家具');
     });
 
     it('should combine mergeCases=true and asObject=false (張)', () => {
       const result = cedict.getBySimplified('张', null, { 
         mergeCases: true, 
         asObject: false 
-      });
+      }) as SearchResultsArray;
       
       expect(result).not.toBeNull();
       expect(Array.isArray(result)).toBe(true);
       
       // All entries should have lowercase pinyin
-      result!.forEach((entry: any) => {
+      result.forEach((entry: DictionaryEntry) => {
         expect(entry.pinyin.toLowerCase()).toBe(entry.pinyin);
       });
     });

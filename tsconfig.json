@@ -4,17 +4,31 @@
     "module": "ESNext",
     "lib": ["ES2022"],
     "moduleResolution": "bundler",
+    "outDir": "./dist",
+    "rootDir": "./src",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"]
+    },
     "resolveJsonModule": true,
-    "allowJs": true,
-    "checkJs": false,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
-    "types": ["vitest/globals", "node"],
-    "allowSyntheticDefaultImports": true
+    "allowSyntheticDefaultImports": true,
+    "noImplicitAny": true,
+    "strictNullChecks": true,
+    "strictFunctionTypes": true,
+    "strictBindCallApply": true,
+    "strictPropertyInitialization": true,
+    "noImplicitThis": true,
+    "alwaysStrict": true,
+    "types": ["node"]
   },
-  "include": ["**/*.test.ts", "**/*.spec.ts", "*.ts", "*.js"],
-  "exclude": ["node_modules", "dist", "coverage"]
+  "include": ["src/**/*", "data.d.ts"],
+  "exclude": ["node_modules", "dist", "coverage", "tests", "data"]
 }
 
