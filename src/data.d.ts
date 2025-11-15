@@ -5,15 +5,16 @@
  */
 
 /**
- * Raw dictionary entry tuple: [traditional, simplified, pinyin, meanings[], variant_of[], classifiers[]]
+ * Optimized raw dictionary entry tuple
+ * [traditional, simplified, pinyin, meanings (string or string[]), variant_of indices, classifier indices]
  */
 type RawDictionaryEntry = [
   string,
   string,
   string,
-  string[],
-  Array<{ traditional: string; simplified: string; pinyin: string }>,
-  Array<[string, string, string]>
+  string | string[], // Optimized: string for single meaning, array for multiple
+  number[],          // Optimized: indices into variantLookup table
+  number[]           // Optimized: indices into classifierLookup table
 ];
 
 /**
@@ -22,10 +23,22 @@ type RawDictionaryEntry = [
 type CharIndexType = Record<string, Record<string, [number[], number[]]>>;
 
 /**
- * All dictionary entries as a flat array
+ * Optimized data structure with lookup tables
+ */
+interface AllDataStructure {
+  /** All dictionary entries as a flat array */
+  all: RawDictionaryEntry[];
+  /** Lookup table for variant references */
+  variantLookup: Array<[string, string, string]>;
+  /** Lookup table for classifiers */
+  classifierLookup: Array<[string, string, string]>;
+}
+
+/**
+ * All dictionary entries with lookup tables
  */
 declare module '../data/all.js' {
-  const allData: RawDictionaryEntry[];
+  const allData: AllDataStructure;
   export default allData;
 }
 

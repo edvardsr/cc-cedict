@@ -3,7 +3,7 @@ import fs from 'fs';
 import unzipper from 'unzipper';
 import { fileURLToPath } from 'url';
 import path from 'path';
-import type { ParsedMeanings, VariantTuple, ParsedLine, CharacterIndex, IndexEntry } from '@/types.js';
+import type { ParsedMeanings, VariantTuple, ParsedLine, CharacterIndex, IndexEntry, OptimizedEntry } from '@/types.js';
 
 const cedictUrl = 'https://www.mdbg.net/chinese/export/cedict/cedict_1_0_ts_utf-8_mdbg.zip';
 const dataPath = path.join(path.dirname(fileURLToPath(import.meta.url)), '../data');
@@ -129,10 +129,33 @@ const extractAndProcessZip = async (zipPath: string): Promise<void> => {
     const cedictData = (await cedictFile.buffer()).toString('utf8');
     const lines = cedictData.split('\n');
     const variantQueue: ParsedLine[] = [];
+    const lineToNumSet = new Set<string>(); // Optimized: Use Set for duplicate detection
     const lineToNum: Record<string, number> = {};
-    const all: ParsedLine[] = [];
+    const all: OptimizedEntry[] = [];
     const traditional: CharacterIndex = {};
     const simplified: CharacterIndex = {};
+    
+    // Optimized: Create lookup tables for variants and classifiers
+    const variantLookupMap = new Map<string, number>();
+    const classifierLookupMap = new Map<string, number>();
+    const variantLookup: Array<[string, string, string]> = [];
+    const classifierLookup: Array<[string, string, string]> = [];
+
+    // Helper to add to lookup table
+    const addToLookup = (
+      tuple: VariantTuple,
+      lookupMap: Map<string, number>,
+      lookupArray: Array<[string, string, string]>
+    ): number => {
+      const key = `${tuple[0]}_${tuple[1]}_${tuple[2]}`;
+      let idx = lookupMap.get(key);
+      if (idx === undefined) {
+        idx = lookupArray.length;
+        lookupArray.push([tuple[0], tuple[1], tuple[2] || '']);
+        lookupMap.set(key, idx);
+      }
+      return idx;
+    };
 
     for (const line of lines) {
       const parsedLine = parseLine(line);
@@ -144,11 +167,33 @@ const extractAndProcessZip = async (zipPath: string): Promise<void> => {
         variantQueue.push(parsedLine);
       }
 
-      if (lineToNum[key] !== undefined) throw key;
+      // Optimized: Use Set for faster duplicate detection
+      if (lineToNumSet.has(key)) throw key;
+      lineToNumSet.add(key);
       lineToNum[key] = all.length;
+      
+      // Convert variant tuples to indices
+      const variantIndices = parsedLine[4].map(tuple => addToLookup(tuple, variantLookupMap, variantLookup));
+      
+      // Convert classifier tuples to indices
+      const classifierIndices = parsedLine[5].map(tuple => addToLookup(tuple, classifierLookupMap, classifierLookup));
+      
+      // Optimized: Store single meaning as string, multiple as array
+      const meanings = parsedLine[3].length === 1 ? parsedLine[3][0] : parsedLine[3];
+      
+      // Create optimized entry
+      const optimizedEntry: OptimizedEntry = [
+        parsedLine[0],
+        parsedLine[1],
+        parsedLine[2],
+        meanings,
+        variantIndices,
+        classifierIndices
+      ];
+      
       pushVariantTo(parsedLine, parsedLine, lineToNum, traditional, 0);
       pushVariantTo(parsedLine, parsedLine, lineToNum, simplified, 1);
-      all.push(parsedLine);
+      all.push(optimizedEntry);
     }
 
     for (const parsedLine of variantQueue) {
@@ -159,7 +204,15 @@ const extractAndProcessZip = async (zipPath: string): Promise<void> => {
       }
     }
 
-    fs.writeFileSync(PATHS.all, `export default ${JSON.stringify(all)}`);
+    // Create the optimized data structure for all.js (entries + lookup tables only)
+    const allData = {
+      all,
+      variantLookup,
+      classifierLookup
+    };
+
+    // Write optimized data files
+    fs.writeFileSync(PATHS.all, `export default ${JSON.stringify(allData)}`);
     fs.writeFileSync(PATHS.traditional, `export default ${JSON.stringify(traditional)}`);
     fs.writeFileSync(PATHS.simplified, `export default ${JSON.stringify(simplified)}`);
   } catch (err) {

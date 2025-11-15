@@ -85,22 +85,30 @@ export type SearchResults = SearchResultsObject | SearchResultsArray | null;
 /**
  * Raw dictionary entry tuple from parsed data
  * This is the internal storage format in the all.js data file
+ * Optimized: variant_of and classifiers now store indices instead of full data
+ * meanings can be string (single) or string[] (multiple) for memory efficiency
  */
 export type RawEntry = [
-  string,             // [0] traditional
-  string,             // [1] simplified
-  string,             // [2] pinyin
-  string[],           // [3] meanings
-  VariantReference[], // [4] variant_of
-  Classifier[]        // [5] classifiers
+  string,           // [0] traditional
+  string,           // [1] simplified
+  string,           // [2] pinyin
+  string | string[], // [3] meanings (string for single, array for multiple)
+  number[],         // [4] variant_of indices (points to variant lookup table)
+  number[]          // [5] classifier indices (points to classifier lookup table)
 ];
 
 /**
  * Index entry structure: [baseEntryIndices, variantEntryIndices]
  * - baseEntryIndices: Array of indices pointing to main entries in the 'all' array
  * - variantEntryIndices: Array of indices pointing to variant entries in the 'all' array
+ * Note: Stored as regular arrays in data files, converted to Uint32Array at runtime for memory efficiency
  */
 export type IndexEntry = [number[], number[]];
+
+/**
+ * Runtime index entry with typed arrays for memory efficiency
+ */
+export type RuntimeIndexEntry = [Uint32Array, Uint32Array];
 
 /**
  * Pinyin index: Maps pinyin strings to their index entries
@@ -109,21 +117,35 @@ export type IndexEntry = [number[], number[]];
 export type PinyinIndex = Record<string, IndexEntry>;
 
 /**
+ * Runtime pinyin index with typed arrays
+ */
+export type RuntimePinyinIndex = Record<string, RuntimeIndexEntry>;
+
+/**
  * Character index: Maps Chinese characters to their pinyin indices
  * Example: { "你好": { "ni3 hao3": [[0], [5]] } }
  */
 export type CharacterIndex = Record<string, PinyinIndex>;
 
 /**
- * Internal data structure for dictionary storage
+ * Runtime character index with typed arrays
+ */
+export type RuntimeCharacterIndex = Record<string, RuntimePinyinIndex>;
+
+/**
+ * Internal data structure for dictionary storage (runtime with typed arrays)
  */
 export interface DictionaryData {
   /** All dictionary entries as a flat array */
   all: RawEntry[];
-  /** Traditional Chinese character index */
-  traditional: CharacterIndex;
-  /** Simplified Chinese character index */
-  simplified: CharacterIndex;
+  /** Traditional Chinese character index (runtime uses Uint32Array) */
+  traditional: RuntimeCharacterIndex;
+  /** Simplified Chinese character index (runtime uses Uint32Array) */
+  simplified: RuntimeCharacterIndex;
+  /** Lookup table for variant references (traditional, simplified, pinyin tuples) */
+  variantLookup: Array<[string, string, string]>;
+  /** Lookup table for classifiers (traditional, simplified, pinyin tuples) */
+  classifierLookup: Array<[string, string, string]>;
 }
 
 /**
@@ -162,4 +184,16 @@ export type ParsedLine = [
   VariantTuple[],   // variant_of (raw tuples)
   VariantTuple[]    // classifiers (raw tuples)
 ] | null;
+
+/**
+ * Optimized entry used in build output (after lookup table conversion)
+ */
+export type OptimizedEntry = [
+  string,             // traditional
+  string,             // simplified
+  string,             // pinyin
+  string | string[],  // meanings (optimized: string for single, array for multiple)
+  number[],           // variant_of indices
+  number[]            // classifier indices
+];
 

@@ -15,9 +15,11 @@ import type {
   DictionaryData,
   RawEntry,
   VariantReference,
-  PinyinIndex,
+  Classifier,
+  RuntimePinyinIndex,
+  RuntimeCharacterIndex,
   ProcessedResults,
-  IndexEntry,
+  RuntimeIndexEntry,
 } from '@/types.js';
 
 export default class Cedict {
@@ -25,16 +27,42 @@ export default class Cedict {
   public readonly data!: DictionaryData;
   public readonly defaultConfig!: Required<SearchConfig>;
 
+  /**
+   * Convert index arrays to Uint32Array for better memory efficiency
+   * Optimized: Typed arrays use less memory and provide faster access
+   */
+  private convertToTypedArrays(index: any): RuntimeCharacterIndex {
+    const converted: RuntimeCharacterIndex = {};
+    for (const [char, pinyinIndex] of Object.entries(index)) {
+      converted[char] = {};
+      for (const [pinyin, indexEntry] of Object.entries(pinyinIndex as Record<string, [number[], number[]]>)) {
+        const [baseIndices, variantIndices] = indexEntry;
+        converted[char][pinyin] = [
+          new Uint32Array(baseIndices),
+          new Uint32Array(variantIndices)
+        ];
+      }
+    }
+    return converted;
+  }
+
   constructor() {
     if (Cedict.instance) {
       return Cedict.instance;
     }
 
     // Initialize properties
+    // Optimized: allData now contains the complete data structure with lookup tables
+    const traditional = allData.traditional || traditionalData;
+    const simplified = allData.simplified || simplifiedData;
+
     (this as { data: DictionaryData }).data = {
-      all: allData,
-      traditional: traditionalData,
-      simplified: simplifiedData,
+      all: allData.all || allData, // Backwards compatibility
+      // Optimized: Convert to Uint32Array for better memory efficiency
+      traditional: this.convertToTypedArrays(traditional),
+      simplified: this.convertToTypedArrays(simplified),
+      variantLookup: allData.variantLookup || [],
+      classifierLookup: allData.classifierLookup || [],
     };
 
     (this as { defaultConfig: Required<SearchConfig> }).defaultConfig = {
@@ -49,21 +77,34 @@ export default class Cedict {
 
   /**
    * Expand a raw data value into a detailed object.
+   * Optimized: Handles new data structure with lookup tables and string/array meanings
    */
   expandValue(val: RawEntry, isVariant: boolean): DictionaryEntry {
-    // Convert variant tuples [trad, simp, pinyin] to objects
-    const variantOf: VariantReference[] = val[4]?.map((variant: any) => ({
-      traditional: variant[0] as string,
-      simplified: variant[1] as string,
-      pinyin: variant[2] as string,
-    })) || [];
+    // Optimized: meanings can be string (single) or array (multiple)
+    const english = typeof val[3] === 'string' ? [val[3]] : val[3];
+    
+    // Optimized: Convert variant indices to full references using lookup table
+    const variantOf: VariantReference[] = val[4]?.map((idx: number) => {
+      const lookup = this.data.variantLookup[idx];
+      return {
+        traditional: lookup[0],
+        simplified: lookup[1],
+        pinyin: lookup[2],
+      };
+    }) || [];
+
+    // Optimized: Convert classifier indices to full tuples using lookup table
+    const classifiers: Classifier[] = val[5]?.map((idx: number) => {
+      const lookup = this.data.classifierLookup[idx];
+      return [lookup[0], lookup[1], lookup[2]];
+    }) || [];
 
     return {
       traditional: val[0],
       simplified: val[1],
       pinyin: val[2],
-      english: val[3],
-      classifiers: val[5],
+      english,
+      classifiers,
       variant_of: variantOf,
       is_variant: isVariant,
     };
@@ -71,9 +112,10 @@ export default class Cedict {
 
   /**
    * Filter and sort results based on the provided criteria.
+   * Optimized: Removed redundant array spreading, uses Uint32Array for better performance
    */
   processResults(
-    wordSource: PinyinIndex,
+    wordSource: RuntimePinyinIndex,
     keysToCheck: string[],
     allowVariants: boolean,
     mergeCases: boolean
@@ -82,13 +124,20 @@ export default class Cedict {
     const variantMap: Record<number, boolean> = {};
 
     for (const key of keysToCheck) {
-      const indexEntry: IndexEntry = wordSource[key];
+      const indexEntry: RuntimeIndexEntry = wordSource[key];
       const [baseItems, variantItems] = indexEntry;
-      const items = allowVariants ? [...baseItems, ...variantItems] : baseItems;
+      
+      // Optimized: Only create combined array when variants exist and are allowed
+      const items = allowVariants && variantItems.length > 0
+        ? [...baseItems, ...variantItems]
+        : baseItems;
 
-      variantItems.forEach((idx) => {
-        variantMap[idx] = true;
-      });
+      // Optimized: Mark variants directly in map (Set would be better but keeping object for compatibility)
+      if (variantItems.length > 0) {
+        for (let i = 0; i < variantItems.length; i++) {
+          variantMap[variantItems[i]] = true;
+        }
+      }
 
       const convertedKey = mergeCases ? key.toLowerCase() : key;
       resultsMap[convertedKey] ??= [];
@@ -100,6 +149,7 @@ export default class Cedict {
 
   /**
    * Organize and return search results.
+   * Optimized: Single-pass iteration, lazy expansion, faster sorting
    */
   formatResults(
     resultsMap: Record<string, number[]>,
@@ -111,25 +161,45 @@ export default class Cedict {
     const results: SearchResultsObject | SearchResultsArray = asObject ? {} : [];
 
     for (const [pinyinKey, indices] of Object.entries(resultsMap)) {
-      const items = indices
-        .map((idx) => this.expandValue(this.data.all[idx], variantMap[idx] ?? false))
-        .filter((val) => (allowVariants ? true : val.is_variant === false))
-        .sort((a, b) => a.pinyin.localeCompare(b.pinyin));
-
-      const itemMap = items.reduce<Record<string, DictionaryEntry>>((acc, item) => {
-        const key = `${item.traditional}_${mergeCases ? item.pinyin.toLowerCase() : item.pinyin}`;
-        if (acc[key]) {
-          acc[key].english = [...acc[key].english, ...item.english];
-        } else {
-          acc[key] = item;
+      // Optimized: Single-pass processing with deduplication map
+      const itemMap: Record<string, DictionaryEntry> = {};
+      
+      for (let i = 0; i < indices.length; i++) {
+        const idx = indices[i];
+        const isVariant = variantMap[idx] ?? false;
+        
+        // Optimized: Skip variants early without expanding
+        if (!allowVariants && isVariant) continue;
+        
+        // Optimized: Lazy expansion - only expand needed entries
+        const item = this.expandValue(this.data.all[idx], isVariant);
+        
+        // Optimized: Normalize pinyin when merging cases
+        if (mergeCases) {
+          item.pinyin = item.pinyin.toLowerCase();
         }
-        return acc;
-      }, {});
+        
+        const dedupKey = `${item.traditional}_${item.pinyin}`;
+        
+        if (itemMap[dedupKey]) {
+          // Merge english definitions
+          itemMap[dedupKey].english = [...itemMap[dedupKey].english, ...item.english];
+        } else {
+          itemMap[dedupKey] = item;
+        }
+      }
+
+      // Optimized: Convert to array and sort only once with faster comparison
+      const itemsArray = Object.values(itemMap);
+      if (itemsArray.length > 1) {
+        // Optimized: Simple string comparison instead of localeCompare
+        itemsArray.sort((a, b) => a.pinyin < b.pinyin ? -1 : a.pinyin > b.pinyin ? 1 : 0);
+      }
 
       if (asObject) {
-        (results as SearchResultsObject)[pinyinKey] = Object.values(itemMap);
+        (results as SearchResultsObject)[pinyinKey] = itemsArray;
       } else {
-        (results as SearchResultsArray).push(...Object.values(itemMap));
+        (results as SearchResultsArray).push(...itemsArray);
       }
     }
 
@@ -138,6 +208,7 @@ export default class Cedict {
 
   /**
    * Retrieve words by type (simplified or traditional).
+   * Optimized: Better case-insensitive search, faster sorting
    */
   getByWord(
     isSimplified: boolean,
@@ -151,12 +222,25 @@ export default class Cedict {
     const wordSource = dataSource[word];
     if (!wordSource) return null;
 
-    const keysToCheck = pinyin
-      ? Object.keys(wordSource).filter((key) =>
-          caseSensitiveSearch ? key === pinyin : key.toLowerCase() === pinyin.toLowerCase()
-        )
-      : Object.keys(wordSource);
-    keysToCheck.sort((a, b) => a.localeCompare(b));
+    // Optimized: Normalize pinyin once before filtering
+    let keysToCheck: string[];
+    if (pinyin) {
+      if (caseSensitiveSearch) {
+        // Fast path: direct check
+        keysToCheck = wordSource[pinyin] ? [pinyin] : [];
+      } else {
+        // Optimized: Normalize search term once
+        const normalizedPinyin = pinyin.toLowerCase();
+        keysToCheck = Object.keys(wordSource).filter((key) => key.toLowerCase() === normalizedPinyin);
+      }
+    } else {
+      keysToCheck = Object.keys(wordSource);
+    }
+    
+    // Optimized: Simple string comparison instead of localeCompare
+    if (keysToCheck.length > 1) {
+      keysToCheck.sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
+    }
 
     const { resultsMap, variantMap } = this.processResults(wordSource, keysToCheck, allowVariants, mergeCases);
     const formattedResults = this.formatResults(resultsMap, variantMap, allowVariants, asObject, mergeCases);
