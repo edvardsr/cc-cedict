@@ -7,6 +7,24 @@ import path from 'path';
 const cedictUrl = 'https://www.mdbg.net/chinese/export/cedict/cedict_1_0_ts_utf-8_mdbg.zip';
 const dataPath = path.join(path.dirname(fileURLToPath(import.meta.url)), 'data');
 
+// Check if we should show progress messages based on npm log level
+const shouldShowProgress = () => {
+    const logLevel = process.env.npm_config_loglevel;
+    return logLevel !== 'silent' && logLevel !== 'error';
+};
+
+// Log informational messages (respects npm log level)
+const info = (msg) => {
+    if (shouldShowProgress()) {
+        console.error(`cc-cedict: ${msg}`);
+    }
+};
+
+// Log error messages (always shown, with package prefix)
+const error = (msg, ...args) => {
+    console.error(`cc-cedict: ${msg}`, ...args);
+};
+
 const PATHS = {
     status: path.join(dataPath, 'status.json'),
     zipFile: path.join(dataPath, 'cedict.zip'),
@@ -75,7 +93,7 @@ const extractAndProcessZip = async (zipPath) => {
         const cedictFile = directory.files.find(f => f.path === 'cedict_ts.u8');
 
         if (!cedictFile) {
-            console.error('cedict_ts.u8 not found in the ZIP file');
+            error('✗ cedict_ts.u8 not found in the ZIP file');
             return;
         }
 
@@ -116,7 +134,7 @@ const extractAndProcessZip = async (zipPath) => {
         fs.writeFileSync(PATHS.traditional, `export default ${JSON.stringify(traditional)}`);
         fs.writeFileSync(PATHS.simplified, `export default ${JSON.stringify(simplified)}`);
     } catch (err) {
-        console.error('Error processing ZIP file:', err.stack || err);
+        error('✗ Error processing ZIP file:', err.stack || err);
     }
 };
 
@@ -136,7 +154,7 @@ const parseLine = (line) => {
 
         return [ traditional, simplified, pinyin, meanings, variant_of, classifiers ];
     } catch (e) {
-        console.error('Error parsing line:', e.stack || e);
+        error('✗ Error parsing line:', e.stack || e);
         return null;
     }
 };
@@ -203,7 +221,7 @@ const main = async () => {
     try {
         ensureDirectoryExists(dataPath);
 
-        console.log('Downloading CC-CEDICT...');
+        info('↓ Downloading CC-CEDICT dictionary...');
         let success = false;
 
         for (let attempt = 1; attempt <= 3; attempt++) {
@@ -212,28 +230,28 @@ const main = async () => {
                 success = true;
                 break;
             } catch (err) {
-                console.error(`Download attempt ${attempt} failed:`, err);
+                error(`✗ Download attempt ${attempt} failed:`, err);
             }
         }
 
         try {
             if (!success) throw 'Failed to download CC-CEDICT';
 
-            console.log('Parsing CC-CEDICT data...');
+            info('↻ Parsing dictionary data (this may take a moment)...');
             await extractAndProcessZip(PATHS.zipFile);
 
-            console.log('Removing raw CC-CEDICT files...');
+            info('↻ Cleaning up...');
             fs.unlinkSync(PATHS.zipFile);
             fs.writeFileSync(PATHS.status, JSON.stringify({ updated_at: new Date().toISOString() }));
         } catch (e) {
-            console.error(`${e}. Using fallback CC-CEDICT data processed at package upload time...`);
+            error(`⚠ ${e}. Using fallback CC-CEDICT data processed at package upload time...`);
             fs.unlinkSync(PATHS.zipFile);
             return;
         }
 
-        console.log('CC-CEDICT setup complete!');
+        info('✓ Setup complete!');
     } catch (err) {
-        console.error('Error in main execution:', err.stack || err);
+        error('✗ Error in main execution:', err.stack || err);
     }
 };
 
