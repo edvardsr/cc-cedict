@@ -1,6 +1,6 @@
 # cc-cedict
 
-**cc-cedict** is a helper library for working with the [CC-CEDICT](https://www.mdbg.net/chinese/dictionary?page=cc-cedict) Chinese-English dictionary. It provides tools for retrieving words and definitions in both simplified and traditional Chinese, as well as processing variants and pinyin.
+**cc-cedict** is a powerful, full-featured Chinese-English dictionary and Mandarin word lookup library. Using up-to-date [CC-CEDICT](https://www.mdbg.net/chinese/dictionary?page=cc-cedict) data, it allows you to search and process both simplified and traditional Chinese, pinyin, variants, classifiers, and more, making it perfect for language learners, developers, and linguists seeking high-quality Chinese-English vocabulary tools.
 
 ## Features
 
